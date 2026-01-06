@@ -177,13 +177,30 @@ export class CreatioClient {
       headers: this.getHeaders(),
     });
 
+    const contentType = response.headers.get("content-type") || "";
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Query failed: ${response.status} ${response.statusText} - ${errorText}`);
+      if (contentType.includes("text/html")) {
+        const titleMatch = responseText.match(/<title>([^<]+)<\/title>/i);
+        const errorTitle = titleMatch ? titleMatch[1] : "Access Denied";
+        throw new Error(`Creatio returned an error page: ${errorTitle}. Your API user may need the 'CanUseODataService' permission.`);
+      }
+      throw new Error(`Query failed: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
-    const data: ODataResponse<CreatioAccount> = await response.json();
-    return data.value || [];
+    if (contentType.includes("text/html")) {
+      const titleMatch = responseText.match(/<title>([^<]+)<\/title>/i);
+      const errorTitle = titleMatch ? titleMatch[1] : "Unknown Error";
+      throw new Error(`Creatio returned HTML instead of JSON: ${errorTitle}. Check that your user has OData API access permissions.`);
+    }
+
+    try {
+      const data: ODataResponse<CreatioAccount> = JSON.parse(responseText);
+      return data.value || [];
+    } catch {
+      throw new Error(`Invalid response from Creatio. Expected JSON but received: ${responseText.substring(0, 200)}...`);
+    }
   }
 
   async getAccountById(id: string): Promise<CreatioAccount | null> {
