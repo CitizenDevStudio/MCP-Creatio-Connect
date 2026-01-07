@@ -2,13 +2,16 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { createCreatioClient, getCreatioClient, setCreatioClient } from "./creatio-client";
 import { mcpServer, MCP_TOOLS } from "./mcp-server";
+import { registerMCPRoutes } from "./mcp-sse-server";
 import { creatioConfigSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+  // Register MCP SSE routes for AI assistant connections
+  registerMCPRoutes(app);
+
   app.post("/api/creatio/connect", async (req, res) => {
     try {
       const validatedConfig = creatioConfigSchema.parse(req.body);
